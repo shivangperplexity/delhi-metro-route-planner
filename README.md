@@ -6,9 +6,10 @@ Plan a Delhi Metro journey between any two of 257 stations and get the **fastest
 
 Mini project for **Design and Analysis of Algorithms**.
 
-## Accounts, QR tickets and train cancellations
-- **Passengers** log in, book QR tickets for the route they planned and see them under *My tickets*.
-- **Admin** cancels trains on any section of a line (or a whole line). Every affected ticket is re-routed around the cancelled section with Dijkstra's algorithm, its QR code is re-issued, and the passenger gets an instant notification (in-app toast, notification bell and browser notification). If no other route exists the ticket is cancelled and refunded. Restoring the service moves tickets back to the normal route.
+## Accounts, QR tickets, check-in and train cancellations
+- **Passengers** log in, book QR tickets for the route they planned, and **check in** when the journey starts. During the journey the ticket shows the station they are near and the arrival time.
+- **Admin** cancels trains on any section of a line (or a whole line). Every affected ticket — booked or already on a journey — is re-routed around the cancelled section with Dijkstra's algorithm (from the passenger's current station if they have checked in), its QR code is re-issued, and the passenger gets an instant notification (pop-up, notification bell and browser notification). If no other route exists the ticket is cancelled and refunded. Restoring the service moves tickets back to the normal route.
+- **Live sync across devices:** every action is an event on a shared live feed ([ntfy.sh](https://ntfy.sh) publish/subscribe, Server-Sent Events). Each page replays the events to rebuild the same tickets and notifications, so the admin can cancel trains on a laptop and the passenger's phone is notified instantly. Events are also cached in the browser. Add `?feed=my-test-feed` to the URL to try things on a private feed.
 
 ### Demo accounts
 | Role | Email | Password |
@@ -16,8 +17,6 @@ Mini project for **Design and Analysis of Algorithms**.
 | Passenger | user@metromate.in | User@123 |
 | Passenger | priya@metromate.in | User@123 |
 | Admin | admin@metromate.in | Admin@123 |
-
-Accounts, tickets and notifications are stored in the browser's `localStorage` (demo only — passwords are SHA-256 hashed). Open the admin and a passenger in two tabs of the same browser to see notifications arrive instantly.
 
 ## Algorithms
 | Feature | Algorithm | Complexity |

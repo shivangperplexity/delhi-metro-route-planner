@@ -21,6 +21,7 @@
     </nav>
     <div class="netstats" id="netStats"></div>
     <div class="acct">
+      <span class="live off" id="liveDot"><i></i><span>Offline</span></span>
       <div class="bell-wrap" id="bellWrap" hidden>
         <button class="bell" id="btnBell" aria-label="Notifications">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.71V3.5a2 2 0 0 0-4 0v.79A7 7 0 0 0 5 11v5l-2 2v1h18v-1z" fill="currentColor"/></svg>
@@ -114,7 +115,7 @@
   <!-- ============ MY TICKETS ============ -->
   <main class="page view" id="view-tickets" hidden>
     <div class="page-head">
-      <div><h2>My tickets</h2><p class="muted">Show the QR code at the station gate. If a train is cancelled, your ticket is re-routed and its QR code is updated automatically.</p></div>
+      <div><h2>My tickets</h2><p class="muted">Check in when you start your journey and show the QR code at the gate. If trains are cancelled on your route — before or during the journey — you are re-routed automatically and notified instantly.</p></div>
       <a class="btn primary" href="#/">Book a new ticket</a>
     </div>
     <div class="tickets" id="ticketList"></div>
@@ -182,7 +183,7 @@
 
   <div class="toasts" id="toasts"></div>
 
-  <footer class="foot">MetroMate · Design &amp; Analysis of Algorithms mini project · Demo accounts and tickets are stored in this browser only</footer>
+  <footer class="foot">MetroMate · Design &amp; Analysis of Algorithms mini project · Bookings and service alerts sync live across devices</footer>
 
   <script src="js/metro-data.js"></script>
   <script src="js/routing.js"></script>
