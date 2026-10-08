@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MetroMate — Delhi Metro Route Planner</title>
-  <meta name="description" content="Plan Delhi Metro journeys: fastest, shortest, fewest-change and fewest-stop routes with fares, built on Dijkstra, A* and 0-1 BFS." />
+  <meta name="description" content="Plan Delhi Metro journeys, book QR tickets and get instant alerts when trains are cancelled." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230b2545'/><path d='M8 23V10l8 8 8-8v13' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -14,11 +14,32 @@
       <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0b2545"/><path d="M8 23V10l8 8 8-8v13" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div><h1>MetroMate</h1><p>Delhi Metro route planner</p></div>
     </div>
+    <nav class="mainnav" id="mainNav">
+      <a href="#/" data-view="planner">Plan journey</a>
+      <a href="#/tickets" data-view="tickets" data-role="user" hidden>My tickets</a>
+      <a href="#/admin" data-view="admin" data-role="admin" hidden>Admin</a>
+    </nav>
     <div class="netstats" id="netStats"></div>
-    <a class="gh" href="https://github.com/shivangperplexity/delhi-metro-route-planner" target="_blank" rel="noopener">GitHub</a>
+    <div class="acct">
+      <div class="bell-wrap" id="bellWrap" hidden>
+        <button class="bell" id="btnBell" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.71V3.5a2 2 0 0 0-4 0v.79A7 7 0 0 0 5 11v5l-2 2v1h18v-1z" fill="currentColor"/></svg>
+          <span class="count" id="bellCount" hidden>0</span>
+        </button>
+        <div class="notes-panel" id="notesPanel" hidden>
+          <div class="np-head"><b>Notifications</b><button class="link" id="btnReadAll">Mark all read</button></div>
+          <ol id="notesList"></ol>
+        </div>
+      </div>
+      <button class="btn small light" id="btnLogin">Log in</button>
+      <div class="me" id="meBox" hidden><span class="avatar" id="meAvatar"></span><span class="me-name"><b id="meName"></b><small id="meRole"></small></span><button class="link light" id="btnLogout">Log out</button></div>
+    </div>
   </header>
 
-  <main class="layout">
+  <div class="alerts" id="alerts" hidden></div>
+
+  <!-- ============ PLANNER ============ -->
+  <main class="layout view" id="view-planner">
     <section class="panel">
       <div class="planner card">
         <label class="stop-field">
@@ -55,7 +76,14 @@
           <div><span>Changes</span><b id="sChanges">–</b></div>
         </div>
         <ol class="journey" id="journey"></ol>
-        <p class="fine">Times are estimates (≈32 km/h average, 30 s per stop, 5 min per change). Fares use DMRC distance slabs revised on 25 Aug 2025; Airport Express fares differ.</p>
+        <div class="book">
+          <div class="book-row">
+            <label>Passengers <select id="bkPax"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+            <label>Travel date <input type="date" id="bkDate" /></label>
+          </div>
+          <button class="btn go wide" id="btnBook">Book QR ticket</button>
+          <p class="fine" id="bkNote">Times are approximate. Fares follow DMRC distance slabs.</p>
+        </div>
       </div>
 
       <div class="card tips" id="tips">
@@ -79,36 +107,88 @@
         <svg id="map" role="img" aria-label="Delhi Metro network map"></svg>
         <div class="tooltip" id="tip" hidden></div>
         <div class="heat-legend" id="heatLegend" hidden></div>
-        <div class="search-badge" id="searchBadge" hidden></div>
-      </div>
-    </section>
-
-    <section class="card wide insight">
-      <div class="insight-head">
-        <div>
-          <h2>How the route was computed</h2>
-          <p class="muted" id="insightLead">Stations are graph vertices, track between neighbouring stations are weighted edges, and changing lines is a transfer edge.</p>
-        </div>
-        <span class="pill" id="algoPill">Dijkstra</span>
-      </div>
-      <div class="table-wrap">
-        <table class="cmp" id="cmpTable">
-          <thead><tr><th>Algorithm</th><th>Optimises</th><th class="num">Travel time</th><th class="num">Changes</th><th class="num">Stations</th><th class="num">Nodes settled</th><th class="num">Edges relaxed</th><th class="num">Run time</th><th>Complexity</th></tr></thead>
-          <tbody><tr><td colspan="9" class="muted">Find a route to compare algorithms on it.</td></tr></tbody>
-        </table>
-      </div>
-      <div class="concepts">
-        <article><h3>Dijkstra</h3><p>Greedy: always settles the closest unsettled station using a binary-heap priority queue. Gives the fastest or shortest route.</p><code>O((V + E) log V)</code></article>
-        <article><h3>A* search</h3><p>Dijkstra plus a straight-line (haversine) estimate to the destination, so it explores toward the goal and settles fewer nodes.</p><code>O((V + E) log V)</code></article>
-        <article><h3>0-1 BFS</h3><p>Riding to the next station costs 1, changing line costs 0. A double-ended queue finds the fewest-stop route without a heap.</p><code>O(V + E)</code></article>
-        <article><h3>Travel-time map</h3><p>Single-source Dijkstra from the origin to every station, coloured by minutes away, like an isochrone.</p><code>O((V + E) log V)</code></article>
       </div>
     </section>
   </main>
-  <footer class="foot">MetroMate · Design &amp; Analysis of Algorithms mini project · Station data: Kaggle Delhi Metro dataset (may not include the newest extensions)</footer>
+
+  <!-- ============ MY TICKETS ============ -->
+  <main class="page view" id="view-tickets" hidden>
+    <div class="page-head">
+      <div><h2>My tickets</h2><p class="muted">Show the QR code at the station gate. If a train is cancelled, your ticket is re-routed and its QR code is updated automatically.</p></div>
+      <a class="btn primary" href="#/">Book a new ticket</a>
+    </div>
+    <div class="tickets" id="ticketList"></div>
+  </main>
+
+  <!-- ============ ADMIN ============ -->
+  <main class="page view" id="view-admin" hidden>
+    <div class="page-head"><div><h2>Admin console</h2><p class="muted">Cancel trains on a section of a line. Every affected ticket is re-routed and its passenger is notified instantly.</p></div></div>
+    <div class="stats" id="adStats"></div>
+    <div class="admin-grid">
+      <div class="card">
+        <h3>Cancel trains</h3>
+        <label class="field">Line <select id="adLine"></select></label>
+        <label class="check"><input type="checkbox" id="adWhole" /> Entire line</label>
+        <div class="two">
+          <label class="field">From station <select id="adFrom"></select></label>
+          <label class="field">To station <select id="adTo"></select></label>
+        </div>
+        <label class="field">Reason <select id="adReason"></select></label>
+        <button class="btn danger wide" id="btnCancelTrains">Cancel trains &amp; notify passengers</button>
+        <p class="result" id="adResult" hidden></p>
+      </div>
+      <div class="card">
+        <h3>Active cancellations</h3>
+        <ol class="dis-list" id="disList"></ol>
+      </div>
+    </div>
+    <div class="card">
+      <h3>All tickets</h3>
+      <div class="table-wrap"><table class="cmp" id="adTickets"></table></div>
+    </div>
+    <div class="card">
+      <h3>Notifications sent</h3>
+      <ol class="log" id="adLog"></ol>
+    </div>
+  </main>
+
+  <!-- ============ MODALS ============ -->
+  <div class="modal" id="loginModal" hidden>
+    <div class="modal-box">
+      <button class="close" data-close aria-label="Close">×</button>
+      <div class="tabs"><button class="active" data-tab="login">Log in</button><button data-tab="register">Create account</button></div>
+      <form id="loginForm">
+        <label class="field reg-only" hidden>Full name <input id="lgName" autocomplete="name" /></label>
+        <label class="field">Email <input id="lgEmail" type="email" autocomplete="username" required /></label>
+        <label class="field">Password <input id="lgPass" type="password" autocomplete="current-password" required /></label>
+        <p class="error" id="lgErr" hidden></p>
+        <button class="btn primary wide" id="lgSubmit">Log in</button>
+      </form>
+      <div class="demo">
+        <b>Demo accounts</b> <span class="muted">(click to fill)</span>
+        <button data-email="user@metromate.in" data-pass="User@123"><span>Passenger</span> user@metromate.in · User@123</button>
+        <button data-email="priya@metromate.in" data-pass="User@123"><span>Passenger</span> priya@metromate.in · User@123</button>
+        <button data-email="admin@metromate.in" data-pass="Admin@123"><span class="adm">Admin</span> admin@metromate.in · Admin@123</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="qrModal" hidden>
+    <div class="modal-box qr-box">
+      <button class="close" data-close aria-label="Close">×</button>
+      <div id="qrBody"></div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <footer class="foot">MetroMate · Design &amp; Analysis of Algorithms mini project · Demo accounts and tickets are stored in this browser only</footer>
 
   <script src="js/metro-data.js"></script>
   <script src="js/routing.js"></script>
+  <script src="js/vendor/qrcode.js"></script>
+  <script src="js/store.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/portal.js"></script>
 </body>
 </html>

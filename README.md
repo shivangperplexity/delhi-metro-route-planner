@@ -6,6 +6,19 @@ Plan a Delhi Metro journey between any two of 257 stations and get the **fastest
 
 Mini project for **Design and Analysis of Algorithms**.
 
+## Accounts, QR tickets and train cancellations
+- **Passengers** log in, book QR tickets for the route they planned and see them under *My tickets*.
+- **Admin** cancels trains on any section of a line (or a whole line). Every affected ticket is re-routed around the cancelled section with Dijkstra's algorithm, its QR code is re-issued, and the passenger gets an instant notification (in-app toast, notification bell and browser notification). If no other route exists the ticket is cancelled and refunded. Restoring the service moves tickets back to the normal route.
+
+### Demo accounts
+| Role | Email | Password |
+|---|---|---|
+| Passenger | user@metromate.in | User@123 |
+| Passenger | priya@metromate.in | User@123 |
+| Admin | admin@metromate.in | Admin@123 |
+
+Accounts, tickets and notifications are stored in the browser's `localStorage` (demo only — passwords are SHA-256 hashed). Open the admin and a passenger in two tabs of the same browser to see notifications arrive instantly.
+
 ## Algorithms
 | Feature | Algorithm | Complexity |
 |---|---|---|

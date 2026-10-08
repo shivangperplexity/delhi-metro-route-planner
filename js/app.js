@@ -36,6 +36,7 @@ function drawMap() {
   const gTracks = el("g", { id: "gTracks" }, svg);
   LINES.forEach((l) => el("polyline", { class: "track", points: pts(l.stops.map((x) => x[0])), stroke: l.color }, gTracks));
   METRO.walkways.forEach(([a, b]) => el("line", { class: "walk", x1: P[a].x, y1: P[a].y, x2: P[b].x, y2: P[b].y }, gTracks));
+  el("g", { id: "gDis" }, svg);
   el("g", { id: "gHeat" }, svg);
   el("g", { id: "gRoute" }, svg);
   el("g", { id: "gExplore" }, svg);
@@ -144,7 +145,7 @@ function clearRoute() {
   ["gRoute", "gExplore"].forEach((id) => ($(id).innerHTML = ""));
   $("map").classList.remove("has-route");
   document.querySelectorAll("#map .on-route").forEach((n) => n.classList.remove("on-route"));
-  $("summary").hidden = true; $("searchBadge").hidden = true;
+  $("summary").hidden = true;
 }
 function routeStations() { return state.route.desc.legs.filter((l) => l.kind === "ride").flatMap((l) => l.stations); }
 
@@ -152,13 +153,12 @@ function run() {
   if (!readInputs()) return;
   clearRoute();
   const r = findRoute(G, state.from, state.to, state.pref);
-  if (!r.found) { $("err").hidden = false; $("err").textContent = "No route found."; return; }
+  if (!r.found) { $("err").hidden = false; $("err").textContent = "No route available — trains on this section are cancelled."; return; }
   state.route = { r, desc: describeRoute(G, r) };
   drawEnds();
   if ($("heat").checked) drawHeat();
   fitTo(routeStations());
   renderSummary();
-  renderComparison();
   if ($("animate").checked) animateSearch(r, drawRoute); else drawRoute();
 }
 
@@ -166,11 +166,9 @@ function animateSearch(r, done) {
   const g = $("gExplore"), order = r.exploredStations, total = order.length;
   const dur = Math.min(1600, 300 + total * 6), t0 = performance.now();
   let shown = 0;
-  $("searchBadge").hidden = false;
   const step = (now) => {
     const k = Math.min(total, Math.floor(((now - t0) / dur) * total));
     for (; shown < k; shown++) { const s = order[shown]; el("circle", { class: "explored", cx: P[s].x, cy: P[s].y }, g); }
-    $("searchBadge").innerHTML = `${PREFERENCES[state.pref].algo}: settled <b>${shown}</b> / ${total} stations`;
     if (shown < total) state.anim = requestAnimationFrame(step);
     else { done(); }
   };
@@ -182,8 +180,6 @@ function drawRoute() {
   const g = $("gRoute");
   g.innerHTML = "";
   $("map").classList.add("has-route");
-  $("searchBadge").hidden = false;
-  $("searchBadge").innerHTML = `${PREFERENCES[state.pref].algo}: settled <b>${r.stats.settled}</b> nodes · ${r.stats.relaxations} edges relaxed`;
   $("gExplore").querySelectorAll("circle").forEach((c) => (c.style.opacity = 0.22));
   for (const leg of desc.legs) {
     if (leg.kind === "ride") {
@@ -242,27 +238,20 @@ function renderSummary() {
   $("journey").innerHTML = items.join("");
 }
 
-function renderComparison() {
-  const s = state.from, t = state.to;
-  const runs = [
-    { key: "fastest", name: "Dijkstra", opt: "Travel time", fn: () => findRoute(G, s, t, "fastest"), cx: "O((V+E) log V)" },
-    { key: "astar", name: "A* (haversine)", opt: "Travel time", fn: () => aStar(G, s, t), cx: "O((V+E) log V)" },
-    { key: "shortest", name: "Dijkstra", opt: "Distance (km)", fn: () => findRoute(G, s, t, "shortest"), cx: "O((V+E) log V)" },
-    { key: "changes", name: "Dijkstra (lexicographic)", opt: "Changes, then time", fn: () => findRoute(G, s, t, "changes"), cx: "O((V+E) log V)" },
-    { key: "stops", name: "0-1 BFS", opt: "Stations", fn: () => findRoute(G, s, t, "stops"), cx: "O(V+E)" },
-  ];
-  const rows = runs.map((x) => {
-    let r, ms = 0;
-    for (let i = 0; i < 20; i++) { r = x.fn(); ms += r.stats.ms; }
-    return { ...x, r, d: describeRoute(G, r), ms: ms / 20 };
+// ---------------- Cancelled trains on the map ----------------
+function drawDisruptions() {
+  const g = $("gDis"); if (!g) return;
+  g.innerHTML = "";
+  const active = Disruptions.active();
+  active.forEach((d) => {
+    const ids = LINES[d.line].stops.slice(d.a, d.b + 1).map((x) => x[0]);
+    el("polyline", { class: "dis-line", points: pts(ids) }, g);
+    ids.forEach((s) => el("circle", { class: "dis-dot", cx: P[s].x, cy: P[s].y }, g));
   });
-  $("cmpTable").querySelector("tbody").innerHTML = rows.map((x) => `<tr class="${x.key === state.pref ? "chosen" : ""}">
-    <td>${x.name}</td><td>${x.opt}</td><td class="num">${fmtMin(x.d.time)}</td><td class="num">${x.d.changes}</td><td class="num">${x.d.stops}</td>
-    <td class="num">${x.r.stats.settled}</td><td class="num">${x.r.stats.relaxations}</td><td class="num">${x.ms.toFixed(3)} ms</td><td><code>${x.cx}</code></td></tr>`).join("");
-  const dj = rows[0], as = rows[1];
-  $("algoPill").textContent = PREFERENCES[state.pref].algo;
-  $("insightLead").innerHTML = `${ST[s].name} → ${ST[t].name}: the graph has <b>${G.nodes.length}</b> nodes and <b>${G.rideEdges + G.transfers + METRO.walkways.length}</b> edges.
-    A* found the same ${fmtMin(as.d.time)} route as Dijkstra while settling <b>${as.r.stats.settled}</b> instead of <b>${dj.r.stats.settled}</b> nodes (${Math.round(100 - (100 * as.r.stats.settled) / dj.r.stats.settled)}% less work).`;
+  const box = $("alerts");
+  box.hidden = !active.length;
+  box.innerHTML = active.map((d) => `<div class="alert"><b>⚠ Service alert</b> <span class="linepill" style="background:${LINES[d.line].color}">${LINES[d.line].name}</span>
+    trains cancelled between <b>${ST[d.from].name}</b> and <b>${ST[d.to].name}</b> (${d.reason}). Journeys are planned around this section.</div>`).join("");
 }
 
 // ---------------- Travel-time map ----------------

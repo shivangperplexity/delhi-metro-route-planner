@@ -51,6 +51,26 @@ function buildGraph(data) {
   return { data, nodes, adj, stationNodes, interchanges, rideEdges, transfers, trackKm };
 }
 
+// ---------- Cancelled train sections ----------
+// G.blockedSet holds "line:pos" for every ride edge between stop pos and pos+1
+// that has no trains (set by the admin). Searches skip those edges.
+function setBlocked(G, sections) {
+  G.blockedSet = new Set();
+  for (const s of sections) for (let p = s.a; p < s.b; p++) G.blockedSet.add(s.line + ":" + p);
+}
+function isBlocked(G, v, e) {
+  return e.type === "ride" && G.blockedSet && G.blockedSet.size > 0 &&
+    G.blockedSet.has(e.line + ":" + Math.min(G.nodes[v].pos, G.nodes[e.to].pos));
+}
+// keys of the ride segments a route uses (to find tickets hit by a cancellation)
+function routeSegments(G, r) {
+  const keys = [];
+  r.edges.forEach((e, i) => {
+    if (e.type === "ride") keys.push(e.line + ":" + Math.min(G.nodes[r.path[i]].pos, G.nodes[r.path[i + 1]].pos));
+  });
+  return keys;
+}
+
 // ---------- Binary min-heap (priority queue) ----------
 class MinHeap {
   constructor() { this.a = []; }
@@ -105,6 +125,7 @@ function dijkstra(G, src, dst, weight, heuristic = null) {
     explored.push(v);
     if (G.nodes[v].station === dst) { goal = v; break; }
     for (const e of G.adj[v]) {
+      if (isBlocked(G, v, e)) continue;
       relaxations++;
       const nd = dist[v] + weight(e);
       if (nd < dist[e.to]) {
@@ -134,6 +155,7 @@ function zeroOneBfs(G, src, dst) {
     done[v] = 1; explored.push(v);
     if (G.nodes[v].station === dst) { goal = v; break; }
     for (const e of G.adj[v]) {
+      if (isBlocked(G, v, e)) continue;
       relaxations++;
       const w = e.type === "ride" ? 1 : 0;
       if (dist[v] + w < dist[e.to]) {
@@ -175,7 +197,7 @@ function travelTimesFrom(G, src) {
   while (pq.size) {
     const { item: v, key } = pq.pop();
     if (key > dist[v]) continue;
-    for (const e of G.adj[v]) if (key + e.time < dist[e.to]) { dist[e.to] = key + e.time; pq.push(e.to, dist[e.to]); }
+    for (const e of G.adj[v]) if (!isBlocked(G, v, e) && key + e.time < dist[e.to]) { dist[e.to] = key + e.time; pq.push(e.to, dist[e.to]); }
   }
   return G.stationNodes.map((list) => Math.min(...list.map((v) => dist[v])));
 }
