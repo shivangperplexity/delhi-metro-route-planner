@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MetroMate — Delhi Metro Route Planner</title>
+  <meta name="description" content="Plan Delhi Metro journeys: fastest, shortest, fewest-change and fewest-stop routes with fares, built on Dijkstra, A* and 0-1 BFS." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230b2545'/><path d='M8 23V10l8 8 8-8v13' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#0b2545"/><path d="M8 23V10l8 8 8-8v13" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><h1>MetroMate</h1><p>Delhi Metro route planner</p></div>
+    </div>
+    <div class="netstats" id="netStats"></div>
+    <a class="gh" href="https://github.com/shivangperplexity/delhi-metro-route-planner" target="_blank" rel="noopener">GitHub</a>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="planner card">
+        <label class="stop-field">
+          <span class="pin from"></span>
+          <input id="fromInput" list="stationList" placeholder="From station" autocomplete="off" aria-label="From station" />
+        </label>
+        <button class="swap" id="btnSwap" title="Swap" aria-label="Swap stations">⇅</button>
+        <label class="stop-field">
+          <span class="pin to"></span>
+          <input id="toInput" list="stationList" placeholder="To station" autocomplete="off" aria-label="To station" />
+        </label>
+        <datalist id="stationList"></datalist>
+
+        <div class="prefs" id="prefs" role="radiogroup" aria-label="Route preference">
+          <button data-pref="fastest" class="active">Fastest</button>
+          <button data-pref="shortest">Shortest</button>
+          <button data-pref="changes">Fewest changes</button>
+          <button data-pref="stops">Fewest stops</button>
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="sunday" /> Sunday / holiday fare</label>
+          <label class="check"><input type="checkbox" id="animate" checked /> Animate search</label>
+        </div>
+        <button class="btn primary wide" id="btnFind">Find route</button>
+        <p class="error" id="err" hidden></p>
+      </div>
+
+      <div class="card summary" id="summary" hidden>
+        <div class="sum-grid">
+          <div><span>Travel time</span><b id="sTime">–</b></div>
+          <div><span>Fare</span><b id="sFare">–</b></div>
+          <div><span>Distance</span><b id="sKm">–</b></div>
+          <div><span>Stations</span><b id="sStops">–</b></div>
+          <div><span>Changes</span><b id="sChanges">–</b></div>
+        </div>
+        <ol class="journey" id="journey"></ol>
+        <p class="fine">Times are estimates (≈32 km/h average, 30 s per stop, 5 min per change). Fares use DMRC distance slabs revised on 25 Aug 2025; Airport Express fares differ.</p>
+      </div>
+
+      <div class="card tips" id="tips">
+        <h3>Try a journey</h3>
+        <div class="chips" id="examples"></div>
+        <p class="fine">Tip: click a station on the map to set the start, click another to set the destination.</p>
+      </div>
+    </section>
+
+    <section class="card mapcard">
+      <div class="map-head">
+        <div class="legend" id="lineLegend"></div>
+        <div class="map-tools">
+          <label class="check"><input type="checkbox" id="heat" /> Travel-time map</label>
+          <button class="tool" id="zoomIn" aria-label="Zoom in">+</button>
+          <button class="tool" id="zoomOut" aria-label="Zoom out">−</button>
+          <button class="tool" id="zoomReset">Fit</button>
+        </div>
+      </div>
+      <div class="map-wrap" id="mapWrap">
+        <svg id="map" role="img" aria-label="Delhi Metro network map"></svg>
+        <div class="tooltip" id="tip" hidden></div>
+        <div class="heat-legend" id="heatLegend" hidden></div>
+        <div class="search-badge" id="searchBadge" hidden></div>
+      </div>
+    </section>
+
+    <section class="card wide insight">
+      <div class="insight-head">
+        <div>
+          <h2>How the route was computed</h2>
+          <p class="muted" id="insightLead">Stations are graph vertices, track between neighbouring stations are weighted edges, and changing lines is a transfer edge.</p>
+        </div>
+        <span class="pill" id="algoPill">Dijkstra</span>
+      </div>
+      <div class="table-wrap">
+        <table class="cmp" id="cmpTable">
+          <thead><tr><th>Algorithm</th><th>Optimises</th><th class="num">Travel time</th><th class="num">Changes</th><th class="num">Stations</th><th class="num">Nodes settled</th><th class="num">Edges relaxed</th><th class="num">Run time</th><th>Complexity</th></tr></thead>
+          <tbody><tr><td colspan="9" class="muted">Find a route to compare algorithms on it.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="concepts">
+        <article><h3>Dijkstra</h3><p>Greedy: always settles the closest unsettled station using a binary-heap priority queue. Gives the fastest or shortest route.</p><code>O((V + E) log V)</code></article>
+        <article><h3>A* search</h3><p>Dijkstra plus a straight-line (haversine) estimate to the destination, so it explores toward the goal and settles fewer nodes.</p><code>O((V + E) log V)</code></article>
+        <article><h3>0-1 BFS</h3><p>Riding to the next station costs 1, changing line costs 0. A double-ended queue finds the fewest-stop route without a heap.</p><code>O(V + E)</code></article>
+        <article><h3>Travel-time map</h3><p>Single-source Dijkstra from the origin to every station, coloured by minutes away, like an isochrone.</p><code>O((V + E) log V)</code></article>
+      </div>
+    </section>
+  </main>
+  <footer class="foot">MetroMate · Design &amp; Analysis of Algorithms mini project · Station data: Kaggle Delhi Metro dataset (may not include the newest extensions)</footer>
+
+  <script src="js/metro-data.js"></script>
+  <script src="js/routing.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
