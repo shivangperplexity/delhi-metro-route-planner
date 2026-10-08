@@ -1,5 +1,7 @@
 # MetroMate — Delhi Metro Route Planner
 
+**Live demo:** https://delhi-metro-route-planner-eta.vercel.app
+
 Plan a Delhi Metro journey between any two of 257 stations and get the **fastest**, **shortest**, **fewest-change** or **fewest-stop** route, with travel time, DMRC fare and step-by-step directions. The map shows how the search algorithm explores the network before it draws the route.
 
 Mini project for **Design and Analysis of Algorithms**.
